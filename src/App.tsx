@@ -35,7 +35,7 @@ const AVAILABLE_GAMES: Game[] = [
 ];
 
 function App() {
-  const [selectedGames, setSelectedGames] = useState<string[]>(['chess']);
+  const [selectedGame, setSelectedGame] = useState<string>('chess');
   const [activeGame, setActiveGame] = useState<string>('chess');
 
   const renderGame = (gameId: string) => {
@@ -53,13 +53,9 @@ function App() {
     }
   };
 
-  const handleSelectionChange = (newSelection: string[]) => {
-    setSelectedGames(newSelection);
-    
-    // If current active game is not selected anymore, switch to first selected game
-    if (newSelection.length > 0 && !newSelection.includes(activeGame)) {
-      setActiveGame(newSelection[0]);
-    }
+  const handleSelectionChange = (gameId: string) => {
+    setSelectedGame(gameId);
+    setActiveGame(gameId);
   };
 
   return (
@@ -75,7 +71,7 @@ function App() {
             
             <GameSelector
               games={AVAILABLE_GAMES}
-              selectedGames={selectedGames}
+              selectedGame={selectedGame}
               onSelectionChange={handleSelectionChange}
             />
           </div>
@@ -84,47 +80,11 @@ function App() {
 
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 py-8">
-        {selectedGames.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 space-y-4">
-            <Gamepad2 className="w-16 h-16 text-gray-400" />
-            <h2 className="text-2xl font-semibold text-gray-600">No games selected</h2>
-            <p className="text-gray-500 text-center">
-              Use the dropdown above to select games you want to play
-            </p>
-          </div>
-        ) : (
-          <>
-            {/* Game Tabs */}
-            {selectedGames.length > 1 && (
-              <div className="flex flex-wrap gap-2 mb-8 p-1 bg-white/60 backdrop-blur-sm rounded-lg border border-gray-200">
-                {selectedGames.map((gameId) => {
-                  const game = AVAILABLE_GAMES.find(g => g.id === gameId);
-                  if (!game) return null;
-                  
-                  return (
-                    <button
-                      key={gameId}
-                      onClick={() => setActiveGame(gameId)}
-                      className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                        activeGame === gameId
-                          ? 'bg-blue-500 text-white shadow-md'
-                          : 'text-gray-700 hover:bg-white/80 hover:shadow-sm'
-                      }`}
-                    >
-                      <span className="mr-2">{game.icon}</span>
-                      {game.name}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
 
-            {/* Active Game */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200 p-8">
-              {renderGame(activeGame)}
-            </div>
-          </>
-        )}
+        {/* Active Game */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200 p-8">
+          {renderGame(activeGame)}
+        </div>
       </main>
     </div>
   );
