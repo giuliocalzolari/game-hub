@@ -1,12 +1,17 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { TrisBoard } from '../../types/games';
 
-const Tris: React.FC = () => {
+interface TrisProps {
+  isBotEnabled: boolean;
+}
+
+const Tris: React.FC<TrisProps> = ({ isBotEnabled }) => {
   const [board, setBoard] = useState<TrisBoard>({
     squares: Array(9).fill(null),
     currentPlayer: 'X',
     winner: null,
   });
+  const botTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const checkWinner = useCallback((squares: Array<'X' | 'O' | null>): 'X' | 'O' | 'tie' | null => {
     const winningCombinations = [
@@ -28,8 +33,68 @@ const Tris: React.FC = () => {
     return null;
   }, []);
 
+  const getBestMove = useCallback((squares: Array<'X' | 'O' | null>): number => {
+    // Simple AI: Try to win, block opponent, or take center/corners
+    const availableMoves = squares.map((square, index) => square === null ? index : null).filter(val => val !== null) as number[];
+    
+    // Try to win
+    for (const move of availableMoves) {
+      const testSquares = [...squares];
+      testSquares[move] = 'O';
+      if (checkWinner(testSquares) === 'O') {
+        return move;
+      }
+    }
+    
+    // Block opponent from winning
+    for (const move of availableMoves) {
+      const testSquares = [...squares];
+      testSquares[move] = 'X';
+      if (checkWinner(testSquares) === 'X') {
+        return move;
+      }
+    }
+    
+    // Take center if available
+    if (squares[4] === null) return 4;
+    
+    // Take corners
+    const corners = [0, 2, 6, 8];
+    const availableCorners = corners.filter(corner => squares[corner] === null);
+    if (availableCorners.length > 0) {
+      return availableCorners[Math.floor(Math.random() * availableCorners.length)];
+    }
+    
+    // Take any available move
+    return availableMoves[Math.floor(Math.random() * availableMoves.length)];
+  }, [checkWinner]);
+
+  const makeBotMove = useCallback(() => {
+    if (board.currentPlayer === 'O' && isBotEnabled && !board.winner) {
+      const bestMove = getBestMove(board.squares);
+      if (bestMove !== undefined) {
+        handleSquareClick(bestMove);
+      }
+    }
+  }, [board, isBotEnabled, getBestMove]);
+
+  useEffect(() => {
+    if (board.currentPlayer === 'O' && isBotEnabled && !board.winner) {
+      botTimeoutRef.current = setTimeout(() => {
+        makeBotMove();
+      }, 500);
+    }
+    
+    return () => {
+      if (botTimeoutRef.current) {
+        clearTimeout(botTimeoutRef.current);
+      }
+    };
+  }, [board.currentPlayer, isBotEnabled, board.winner, makeBotMove]);
+
   const handleSquareClick = useCallback((index: number) => {
     if (board.squares[index] || board.winner) return;
+    if (isBotEnabled && board.currentPlayer === 'O') return; // Prevent manual moves when bot is playing
 
     const newSquares = [...board.squares];
     newSquares[index] = board.currentPlayer;
@@ -41,9 +106,12 @@ const Tris: React.FC = () => {
       currentPlayer: board.currentPlayer === 'X' ? 'O' : 'X',
       winner,
     });
-  }, [board, checkWinner]);
+  }, [board, checkWinner, isBotEnabled]);
 
   const resetGame = () => {
+    if (botTimeoutRef.current) {
+      clearTimeout(botTimeoutRef.current);
+    }
     setBoard({
       squares: Array(9).fill(null),
       currentPlayer: 'X',
@@ -54,6 +122,7 @@ const Tris: React.FC = () => {
   const getStatusMessage = () => {
     if (board.winner === 'tie') return "It's a tie!";
     if (board.winner) return `Player ${board.winner} wins!`;
+    if (isBotEnabled && board.currentPlayer === 'O') return "Bot is thinking...";
     return `Current player: ${board.currentPlayer}`;
   };
 

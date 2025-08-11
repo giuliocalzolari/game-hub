@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Gamepad2 } from 'lucide-react';
+import { Gamepad2, Bot, User } from 'lucide-react';
 import GameSelector from './components/GameSelector';
 import Chess from './components/games/Chess';
 import Dama from './components/games/Dama';
@@ -37,17 +37,18 @@ const AVAILABLE_GAMES: Game[] = [
 function App() {
   const [selectedGame, setSelectedGame] = useState<string>('chess');
   const [activeGame, setActiveGame] = useState<string>('chess');
+  const [isBotEnabled, setIsBotEnabled] = useState<boolean>(false);
 
   const renderGame = (gameId: string) => {
     switch (gameId) {
       case 'chess':
-        return <Chess />;
+        return <Chess isBotEnabled={isBotEnabled} />;
       case 'dama':
-        return <Dama />;
+        return <Dama isBotEnabled={isBotEnabled} />;
       case 'tris':
-        return <Tris />;
+        return <Tris isBotEnabled={isBotEnabled} />;
       case 'snakes-and-ladders':
-        return <SnakesAndLadders />;
+        return <SnakesAndLadders isBotEnabled={isBotEnabled} />;
       default:
         return <div>Game not found</div>;
     }
@@ -69,11 +70,25 @@ function App() {
               <h1 className="text-3xl font-bold text-gray-900">GameHub</h1>
             </div>
             
-            <GameSelector
-              games={AVAILABLE_GAMES}
-              selectedGame={selectedGame}
-              onSelectionChange={handleSelectionChange}
-            />
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => setIsBotEnabled(!isBotEnabled)}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                  isBotEnabled 
+                    ? 'bg-purple-100 text-purple-700 border border-purple-200' 
+                    : 'bg-gray-100 text-gray-600 border border-gray-200'
+                }`}
+              >
+                {isBotEnabled ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />}
+                <span>{isBotEnabled ? 'Bot Player' : '2 Players'}</span>
+              </button>
+              
+              <GameSelector
+                games={AVAILABLE_GAMES}
+                selectedGame={selectedGame}
+                onSelectionChange={handleSelectionChange}
+              />
+            </div>
           </div>
         </div>
       </header>

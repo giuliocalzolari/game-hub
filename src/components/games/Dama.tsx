@@ -1,7 +1,11 @@
 import React, { useState, useCallback } from 'react';
 import { DamaPosition, DamaPiece } from '../../types/games';
 
-const Dama: React.FC = () => {
+interface DamaProps {
+  isBotEnabled: boolean;
+}
+
+const Dama: React.FC<DamaProps> = ({ isBotEnabled }) => {
   const [board, setBoard] = useState<(DamaPiece | null)[][]>(initializeBoard());
   const [selectedSquare, setSelectedSquare] = useState<DamaPosition | null>(null);
   const [currentPlayer, setCurrentPlayer] = useState<'red' | 'black'>('red');
@@ -53,6 +57,9 @@ const Dama: React.FC = () => {
   const handleSquareClick = useCallback((row: number, col: number) => {
     const clickedPiece = board[row][col];
     
+    // Prevent manual moves when bot is playing
+    if (isBotEnabled && currentPlayer === 'black') return;
+    
     if (selectedSquare) {
       const selectedPiece = board[selectedSquare.row][selectedSquare.col];
       
@@ -75,7 +82,7 @@ const Dama: React.FC = () => {
     } else if (clickedPiece && clickedPiece.color === currentPlayer) {
       setSelectedSquare({ row, col });
     }
-  }, [board, selectedSquare, currentPlayer]);
+  }, [board, selectedSquare, currentPlayer, isBotEnabled]);
 
   const resetGame = () => {
     setBoard(initializeBoard());
@@ -96,7 +103,9 @@ const Dama: React.FC = () => {
       </div>
       
       <div className="text-lg font-semibold text-gray-700">
-        Current player: <span className="capitalize text-red-600">{currentPlayer}</span>
+        Current player: <span className="capitalize text-red-600">
+          {isBotEnabled && currentPlayer === 'black' ? 'Bot (Black)' : currentPlayer}
+        </span>
       </div>
       
       <div className="grid grid-cols-8 gap-0 border-2 border-gray-800 bg-white">

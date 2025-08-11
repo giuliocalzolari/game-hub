@@ -1,7 +1,11 @@
 import React, { useState, useCallback } from 'react';
 import { ChessPosition, ChessPiece } from '../../types/games';
 
-const Chess: React.FC = () => {
+interface ChessProps {
+  isBotEnabled: boolean;
+}
+
+const Chess: React.FC<ChessProps> = ({ isBotEnabled }) => {
   const [board, setBoard] = useState<(ChessPiece | null)[][]>(initializeBoard());
   const [selectedSquare, setSelectedSquare] = useState<ChessPosition | null>(null);
   const [currentPlayer, setCurrentPlayer] = useState<'white' | 'black'>('white');
@@ -79,6 +83,9 @@ const Chess: React.FC = () => {
   const handleSquareClick = useCallback((row: number, col: number) => {
     const clickedPiece = board[row][col];
     
+    // Prevent manual moves when bot is playing
+    if (isBotEnabled && currentPlayer === 'black') return;
+    
     if (selectedSquare) {
       const selectedPiece = board[selectedSquare.row][selectedSquare.col];
       
@@ -96,7 +103,7 @@ const Chess: React.FC = () => {
     } else if (clickedPiece && clickedPiece.color === currentPlayer) {
       setSelectedSquare({ row, col });
     }
-  }, [board, selectedSquare, currentPlayer]);
+  }, [board, selectedSquare, currentPlayer, isBotEnabled]);
 
   const resetGame = () => {
     setBoard(initializeBoard());
@@ -117,7 +124,9 @@ const Chess: React.FC = () => {
       </div>
       
       <div className="text-lg font-semibold text-gray-700">
-        Current player: <span className="capitalize text-blue-600">{currentPlayer}</span>
+        Current player: <span className="capitalize text-blue-600">
+          {isBotEnabled && currentPlayer === 'black' ? 'Bot (Black)' : currentPlayer}
+        </span>
       </div>
       
       <div className="grid grid-cols-8 gap-0 border-2 border-gray-800 bg-white">

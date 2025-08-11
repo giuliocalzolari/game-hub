@@ -2,10 +2,14 @@ import React, { useState, useCallback } from 'react';
 import { Dice6 } from 'lucide-react';
 import { SnakesAndLaddersPlayer } from '../../types/games';
 
-const SnakesAndLadders: React.FC = () => {
+interface SnakesAndLaddersProps {
+  isBotEnabled: boolean;
+}
+
+const SnakesAndLadders: React.FC<SnakesAndLaddersProps> = ({ isBotEnabled }) => {
   const [players] = useState<SnakesAndLaddersPlayer[]>([
     { id: '1', name: 'Player 1', position: 1, color: 'bg-blue-500' },
-    { id: '2', name: 'Player 2', position: 1, color: 'bg-red-500' },
+    { id: '2', name: 'Bot Player', position: 1, color: 'bg-red-500' },
   ]);
   
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
@@ -25,6 +29,12 @@ const SnakesAndLadders: React.FC = () => {
 
   const rollDice = useCallback(async () => {
     if (isRolling || winner) return;
+    
+    // Auto-roll for bot player
+    if (isBotEnabled && currentPlayerIndex === 1) {
+      // Add a small delay for bot moves
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
     
     setIsRolling(true);
     
@@ -63,6 +73,16 @@ const SnakesAndLadders: React.FC = () => {
     
     setIsRolling(false);
   }, [isRolling, winner, gameBoard, currentPlayerIndex, players.length]);
+
+  // Auto-roll for bot player
+  React.useEffect(() => {
+    if (isBotEnabled && currentPlayerIndex === 1 && !isRolling && !winner) {
+      const timeout = setTimeout(() => {
+        rollDice();
+      }, 1500);
+      return () => clearTimeout(timeout);
+    }
+  }, [isBotEnabled, currentPlayerIndex, isRolling, winner, rollDice]);
 
   const resetGame = () => {
     setGameBoard(players.map(p => ({ ...p, position: 1 })));
@@ -148,16 +168,18 @@ const SnakesAndLadders: React.FC = () => {
         </div>
       ) : (
         <div className="text-lg font-semibold text-gray-700">
-          Current turn: <span className="text-blue-600">{gameBoard[currentPlayerIndex].name}</span>
+          Current turn: <span className="text-blue-600">
+            {isBotEnabled && currentPlayerIndex === 1 ? 'Bot Player' : gameBoard[currentPlayerIndex].name}
+          </span>
         </div>
       )}
       
       <div className="flex items-center space-x-4">
         <button
           onClick={rollDice}
-          disabled={isRolling || !!winner}
+          disabled={isRolling || !!winner || (isBotEnabled && currentPlayerIndex === 1)}
           className={`flex items-center space-x-2 px-6 py-3 rounded-lg text-white font-semibold transition-all ${
-            isRolling || winner 
+            isRolling || winner || (isBotEnabled && currentPlayerIndex === 1)
               ? 'bg-gray-400 cursor-not-allowed' 
               : 'bg-blue-500 hover:bg-blue-600 active:scale-95'
           }`}
@@ -184,7 +206,7 @@ const SnakesAndLadders: React.FC = () => {
           <div key={player.id} className="flex items-center space-x-2">
             <div className={`w-4 h-4 rounded-full ${player.color}`} />
             <span className="text-sm font-medium">
-              {player.name}: {player.position}
+              {isBotEnabled && index === 1 ? 'Bot Player' : player.name}: {player.position}
             </span>
           </div>
         ))}
