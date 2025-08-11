@@ -73,10 +73,19 @@ const Tris: React.FC<TrisProps> = ({ isBotEnabled }) => {
     if (board.currentPlayer === 'O' && isBotEnabled && !board.winner) {
       const bestMove = getBestMove(board.squares);
       if (bestMove !== undefined) {
-        handleSquareClick(bestMove);
+        const newSquares = [...board.squares];
+        newSquares[bestMove] = 'O';
+        
+        const winner = checkWinner(newSquares);
+        
+        setBoard({
+          squares: newSquares,
+          currentPlayer: 'X',
+          winner,
+        });
       }
     }
-  }, [board, isBotEnabled, getBestMove]);
+  }, [board, isBotEnabled, getBestMove, checkWinner]);
 
   useEffect(() => {
     if (board.currentPlayer === 'O' && isBotEnabled && !board.winner) {
