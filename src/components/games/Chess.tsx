@@ -10,6 +10,7 @@ const Chess: React.FC<ChessProps> = ({ isBotEnabled }) => {
   const [board, setBoard] = useState<(ChessPiece | null)[][]>(initializeBoard());
   const [selectedSquare, setSelectedSquare] = useState<ChessPosition | null>(null);
   const [currentPlayer, setCurrentPlayer] = useState<'white' | 'black'>('white');
+  const [gameStatus, setGameStatus] = useState<string>('');
   const botTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   function initializeBoard(): (ChessPiece | null)[][] {
@@ -17,16 +18,16 @@ const Chess: React.FC<ChessProps> = ({ isBotEnabled }) => {
     
     // Initialize pawns
     for (let col = 0; col < 8; col++) {
-      newBoard[1][col] = { type: 'pawn', color: 'black', position: { row: 1, col } };
-      newBoard[6][col] = { type: 'pawn', color: 'white', position: { row: 6, col } };
+      newBoard[1][col] = { type: 'pawn', color: 'black', position: { row: 1, col }, hasMoved: false };
+      newBoard[6][col] = { type: 'pawn', color: 'white', position: { row: 6, col }, hasMoved: false };
     }
     
     // Initialize other pieces
     const pieceOrder: ChessPiece['type'][] = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
     
     for (let col = 0; col < 8; col++) {
-      newBoard[0][col] = { type: pieceOrder[col], color: 'black', position: { row: 0, col } };
-      newBoard[7][col] = { type: pieceOrder[col], color: 'white', position: { row: 7, col } };
+      newBoard[0][col] = { type: pieceOrder[col], color: 'black', position: { row: 0, col }, hasMoved: false };
+      newBoard[7][col] = { type: pieceOrder[col], color: 'white', position: { row: 7, col }, hasMoved: false };
     }
     
     return newBoard;
@@ -42,6 +43,85 @@ const Chess: React.FC<ChessProps> = ({ isBotEnabled }) => {
       pawn: piece.color === 'white' ? '♙' : '♟',
     };
     return symbols[piece.type];
+  };
+
+  const isPathClear = (from: ChessPosition, to: ChessPosition): boolean => {
+    const dx = Math.sign(to.col - from.col);
+    const dy = Math.sign(to.row - from.row);
+    
+    let currentRow = from.row + dy;
+    let currentCol = from.col + dx;
+    
+    while (currentRow !== to.row || currentCol !== to.col) {
+      if (board[currentRow][currentCol] !== null) {
+        return false;
+      }
+      currentRow += dy;
+      currentCol += dx;
+    }
+    
+    return true;
+  };
+
+  const isValidMove = (from: ChessPosition, to: ChessPosition, piece: ChessPiece): boolean => {
+    // Basic bounds check
+    if (to.row < 0 || to.row > 7 || to.col < 0 || to.col > 7) return false;
+    
+    // Can't move to same square
+    if (from.row === to.row && from.col === to.col) return false;
+    
+    // Can't capture own pieces
+    const targetPiece = board[to.row][to.col];
+    if (targetPiece && targetPiece.color === piece.color) return false;
+    
+    const dx = Math.abs(to.col - from.col);
+    const dy = Math.abs(to.row - from.row);
+    
+    switch (piece.type) {
+      case 'pawn':
+        const direction = piece.color === 'white' ? -1 : 1;
+        const startRow = piece.color === 'white' ? 6 : 1;
+        
+        // Forward move
+        if (to.col === from.col && !targetPiece) {
+          if (to.row === from.row + direction) return true;
+          if (from.row === startRow && to.row === from.row + 2 * direction) {
+            return !board[from.row + direction][to.col];
+          }
+        }
+        // Diagonal capture
+        else if (Math.abs(to.col - from.col) === 1 && to.row === from.row + direction && targetPiece) {
+          return true;
+        }
+        return false;
+      
+      case 'rook':
+        if (dx === 0 || dy === 0) {
+          return isPathClear(from, to);
+        }
+        return false;
+      
+      case 'bishop':
+        if (dx === dy) {
+          return isPathClear(from, to);
+        }
+        return false;
+      
+      case 'queen':
+        if (dx === 0 || dy === 0 || dx === dy) {
+          return isPathClear(from, to);
+        }
+        return false;
+      
+      case 'king':
+        return dx <= 1 && dy <= 1;
+      
+      case 'knight':
+        return (dx === 2 && dy === 1) || (dx === 1 && dy === 2);
+      
+      default:
+        return false;
+    }
   };
 
   const getAllValidMoves = (color: 'white' | 'black'): Array<{from: ChessPosition, to: ChessPosition, piece: ChessPiece}> => {
@@ -68,10 +148,8 @@ const Chess: React.FC<ChessProps> = ({ isBotEnabled }) => {
     for (let row = 0; row < 8; row++) {
       for (let col = 0; col < 8; col++) {
         const to = { row, col };
-        if (isValidMove(from, to, piece) && !board[row][col]) {
+        if (isValidMove(from, to, piece)) {
           moves.push(to);
-        } else if (isValidMove(from, to, piece) && board[row][col] && board[row][col]!.color !== piece.color) {
-          moves.push(to); // Capture move
         }
       }
     }
@@ -79,7 +157,7 @@ const Chess: React.FC<ChessProps> = ({ isBotEnabled }) => {
     return moves;
   };
 
-  const evaluateBoard = (): number => {
+  const evaluatePosition = (testBoard: (ChessPiece | null)[][]): number => {
     const pieceValues = {
       pawn: 1,
       knight: 3,
@@ -93,9 +171,25 @@ const Chess: React.FC<ChessProps> = ({ isBotEnabled }) => {
     
     for (let row = 0; row < 8; row++) {
       for (let col = 0; col < 8; col++) {
-        const piece = board[row][col];
+        const piece = testBoard[row][col];
         if (piece) {
-          const value = pieceValues[piece.type];
+          let value = pieceValues[piece.type];
+          
+          // Positional bonuses
+          if (piece.type === 'pawn') {
+            // Encourage pawn advancement
+            if (piece.color === 'black') {
+              value += (row - 1) * 0.1;
+            } else {
+              value += (6 - row) * 0.1;
+            }
+          }
+          
+          // Central control bonus
+          if (row >= 3 && row <= 4 && col >= 3 && col <= 4) {
+            value += 0.3;
+          }
+          
           score += piece.color === 'black' ? value : -value;
         }
       }
@@ -112,30 +206,33 @@ const Chess: React.FC<ChessProps> = ({ isBotEnabled }) => {
     let bestScore = -Infinity;
     
     for (const move of validMoves) {
-      // Simulate the move
-      const capturedPiece = board[move.to.row][move.to.col];
-      const tempBoard = board.map(row => [...row]);
-      tempBoard[move.to.row][move.to.col] = move.piece;
-      tempBoard[move.from.row][move.from.col] = null;
+      // Create a copy of the board to test the move
+      const testBoard = board.map(row => [...row]);
+      const capturedPiece = testBoard[move.to.row][move.to.col];
       
-      // Simple evaluation: prioritize captures and central control
-      let score = 0;
+      // Make the move on test board
+      testBoard[move.to.row][move.to.col] = move.piece;
+      testBoard[move.from.row][move.from.col] = null;
+      
+      let score = evaluatePosition(testBoard);
       
       // Bonus for captures
       if (capturedPiece) {
         const pieceValues = { pawn: 1, knight: 3, bishop: 3, rook: 5, queen: 9, king: 100 };
-        score += pieceValues[capturedPiece.type] * 10;
+        score += pieceValues[capturedPiece.type] * 2;
       }
       
-      // Bonus for central squares
-      if (move.to.row >= 3 && move.to.row <= 4 && move.to.col >= 3 && move.to.col <= 4) {
-        score += 2;
+      // Bonus for checks (simplified - just attacking near enemy king)
+      const enemyKingPos = findKing('white', testBoard);
+      if (enemyKingPos) {
+        const distance = Math.abs(move.to.row - enemyKingPos.row) + Math.abs(move.to.col - enemyKingPos.col);
+        if (distance <= 2) {
+          score += 1;
+        }
       }
       
-      // Bonus for advancing pawns
-      if (move.piece.type === 'pawn' && move.to.row > move.from.row) {
-        score += 1;
-      }
+      // Add some randomness to make bot less predictable
+      score += Math.random() * 0.5;
       
       if (score > bestScore) {
         bestScore = score;
@@ -146,16 +243,61 @@ const Chess: React.FC<ChessProps> = ({ isBotEnabled }) => {
     return bestMove;
   };
 
+  const findKing = (color: 'white' | 'black', testBoard?: (ChessPiece | null)[][]): ChessPosition | null => {
+    const searchBoard = testBoard || board;
+    for (let row = 0; row < 8; row++) {
+      for (let col = 0; col < 8; col++) {
+        const piece = searchBoard[row][col];
+        if (piece && piece.type === 'king' && piece.color === color) {
+          return { row, col };
+        }
+      }
+    }
+    return null;
+  };
+
+  const isInCheck = (color: 'white' | 'black', testBoard?: (ChessPiece | null)[][]): boolean => {
+    const searchBoard = testBoard || board;
+    const kingPos = findKing(color, searchBoard);
+    if (!kingPos) return false;
+    
+    const enemyColor = color === 'white' ? 'black' : 'white';
+    
+    // Check if any enemy piece can attack the king
+    for (let row = 0; row < 8; row++) {
+      for (let col = 0; col < 8; col++) {
+        const piece = searchBoard[row][col];
+        if (piece && piece.color === enemyColor) {
+          if (isValidMove({ row, col }, kingPos, piece)) {
+            return true;
+          }
+        }
+      }
+    }
+    
+    return false;
+  };
+
   const makeBotMove = useCallback(() => {
     if (currentPlayer === 'black' && isBotEnabled) {
       const bestMove = getBestMove();
       if (bestMove) {
         const newBoard = board.map(row => [...row]);
-        newBoard[bestMove.to.row][bestMove.to.col] = bestMove.piece;
+        const movingPiece = { ...bestMove.piece, hasMoved: true };
+        newBoard[bestMove.to.row][bestMove.to.col] = movingPiece;
         newBoard[bestMove.from.row][bestMove.from.col] = null;
         
         setBoard(newBoard);
         setCurrentPlayer('white');
+        
+        // Check for check/checkmate
+        setTimeout(() => {
+          if (isInCheck('white', newBoard)) {
+            setGameStatus('White is in check!');
+          } else {
+            setGameStatus('');
+          }
+        }, 100);
       }
     }
   }, [currentPlayer, isBotEnabled, board]);
@@ -173,49 +315,6 @@ const Chess: React.FC<ChessProps> = ({ isBotEnabled }) => {
       }
     };
   }, [currentPlayer, isBotEnabled, makeBotMove]);
-  const isValidMove = (from: ChessPosition, to: ChessPosition, piece: ChessPiece): boolean => {
-    // Basic move validation (simplified for demo)
-    const dx = Math.abs(to.col - from.col);
-    const dy = Math.abs(to.row - from.row);
-    
-    // Can't capture own pieces
-    const targetPiece = board[to.row][to.col];
-    if (targetPiece && targetPiece.color === piece.color) return false;
-    
-    switch (piece.type) {
-      case 'pawn':
-        const direction = piece.color === 'white' ? -1 : 1;
-        const startRow = piece.color === 'white' ? 6 : 1;
-        
-        if (to.col === from.col && !targetPiece) {
-          if (to.row === from.row + direction) return !board[to.row][to.col];
-          if (from.row === startRow && to.row === from.row + 2 * direction) {
-            return !board[to.row][to.col] && !board[from.row + direction][to.col];
-          }
-        } else if (Math.abs(to.col - from.col) === 1 && to.row === from.row + direction && targetPiece) {
-          return true; // Diagonal capture
-        }
-        return false;
-      
-      case 'rook':
-        return (dx === 0 || dy === 0);
-      
-      case 'bishop':
-        return (dx === dy);
-      
-      case 'queen':
-        return (dx === 0 || dy === 0 || dx === dy);
-      
-      case 'king':
-        return (dx <= 1 && dy <= 1);
-      
-      case 'knight':
-        return ((dx === 2 && dy === 1) || (dx === 1 && dy === 2));
-      
-      default:
-        return false;
-    }
-  };
 
   const handleSquareClick = useCallback((row: number, col: number) => {
     const clickedPiece = board[row][col];
@@ -227,13 +326,34 @@ const Chess: React.FC<ChessProps> = ({ isBotEnabled }) => {
       const selectedPiece = board[selectedSquare.row][selectedSquare.col];
       
       if (selectedPiece && isValidMove(selectedSquare, { row, col }, selectedPiece)) {
-        // Make the move
-        const newBoard = board.map(r => [...r]);
-        newBoard[row][col] = selectedPiece;
-        newBoard[selectedSquare.row][selectedSquare.col] = null;
+        // Test if move would put own king in check
+        const testBoard = board.map(r => [...r]);
+        const movingPiece = { ...selectedPiece, hasMoved: true };
+        testBoard[row][col] = movingPiece;
+        testBoard[selectedSquare.row][selectedSquare.col] = null;
         
-        setBoard(newBoard);
-        setCurrentPlayer(currentPlayer === 'white' ? 'black' : 'white');
+        if (!isInCheck(currentPlayer, testBoard)) {
+          // Make the move
+          const newBoard = board.map(r => [...r]);
+          newBoard[row][col] = movingPiece;
+          newBoard[selectedSquare.row][selectedSquare.col] = null;
+          
+          setBoard(newBoard);
+          setCurrentPlayer(currentPlayer === 'white' ? 'black' : 'white');
+          
+          // Check for check
+          const enemyColor = currentPlayer === 'white' ? 'black' : 'white';
+          setTimeout(() => {
+            if (isInCheck(enemyColor, newBoard)) {
+              setGameStatus(`${enemyColor} is in check!`);
+            } else {
+              setGameStatus('');
+            }
+          }, 100);
+        } else {
+          setGameStatus('Invalid move: would put king in check!');
+          setTimeout(() => setGameStatus(''), 2000);
+        }
       }
       
       setSelectedSquare(null);
@@ -249,12 +369,15 @@ const Chess: React.FC<ChessProps> = ({ isBotEnabled }) => {
     setBoard(initializeBoard());
     setSelectedSquare(null);
     setCurrentPlayer('white');
+    setGameStatus('');
   };
 
   const getStatusMessage = () => {
+    if (gameStatus) return gameStatus;
     if (isBotEnabled && currentPlayer === 'black') return "Bot is thinking...";
     return `Current player: ${currentPlayer}`;
   };
+
   return (
     <div className="flex flex-col items-center space-y-6">
       <div className="flex items-center justify-between w-full max-w-md">
@@ -268,6 +391,7 @@ const Chess: React.FC<ChessProps> = ({ isBotEnabled }) => {
       </div>
       
       <div className={`text-lg font-semibold ${
+        gameStatus.includes('check') ? 'text-red-600' : 
         isBotEnabled && currentPlayer === 'black' ? 'text-purple-600' : 'text-gray-700'
       }`}>
         {getStatusMessage()}
@@ -290,6 +414,11 @@ const Chess: React.FC<ChessProps> = ({ isBotEnabled }) => {
             </div>
           ))
         )}
+      </div>
+      
+      <div className="text-sm text-gray-600 max-w-md text-center">
+        <p>Click a piece to select it, then click a valid square to move.</p>
+        <p>The bot follows proper chess rules including check detection.</p>
       </div>
     </div>
   );
