@@ -40,3 +40,27 @@ export interface SnakesAndLaddersPlayer {
   position: number;
   color: string;
 }
+
+export interface BackgammonPiece {
+  color: 'white' | 'black';
+  count: number;
+}
+
+export interface BackgammonMove {
+  from: number;
+  to: number;
+  distance: number;
+}
+
+export interface BackgammonGameState {
+  board: (BackgammonPiece | null)[];
+  currentPlayer: 'white' | 'black';
+  dice: [number, number];
+  availableMoves: number[];
+  selectedPoint: number | null;
+  whiteBar: number;
+  blackBar: number;
+  whiteBorne: number;
+  blackBorne: number;
+  winner: 'white' | 'black' | null;
+}

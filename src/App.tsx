@@ -5,6 +5,7 @@ import Chess from './components/games/Chess';
 import Dama from './components/games/Dama';
 import Tris from './components/games/Tris';
 import SnakesAndLadders from './components/games/SnakesAndLadders';
+import Backgammon from './components/games/Backgammon';
 import { Game } from './types/games';
 
 const AVAILABLE_GAMES: Game[] = [
@@ -32,6 +33,12 @@ const AVAILABLE_GAMES: Game[] = [
     description: 'Roll dice and climb to victory',
     icon: '🎲',
   },
+  {
+    id: 'backgammon',
+    name: 'Backgammon',
+    description: 'Race your pieces home in this classic strategy game',
+    icon: '🎯',
+  },
 ];
 
 function App() {
@@ -49,6 +56,8 @@ function App() {
         return <Tris isBotEnabled={isBotEnabled} />;
       case 'snakes-and-ladders':
         return <SnakesAndLadders isBotEnabled={isBotEnabled} />;
+      case 'backgammon':
+        return <Backgammon isBotEnabled={isBotEnabled} />;
       default:
         return <div>Game not found</div>;
     }
