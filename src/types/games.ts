@@ -64,3 +64,29 @@ export interface BackgammonGameState {
   blackBorne: number;
   winner: 'white' | 'black' | null;
 }
+
+export interface UnoCard {
+  id: string;
+  color: 'red' | 'blue' | 'green' | 'yellow' | 'wild';
+  type: 'number' | 'skip' | 'reverse' | 'draw2' | 'wild' | 'wild4';
+  value?: number; // 0-9 for number cards
+}
+
+export interface UnoPlayer {
+  id: string;
+  name: string;
+  cards: UnoCard[];
+  isBot: boolean;
+}
+
+export interface UnoGameState {
+  players: UnoPlayer[];
+  currentPlayerIndex: number;
+  direction: 1 | -1; // 1 for clockwise, -1 for counter-clockwise
+  topCard: UnoCard;
+  deck: UnoCard[];
+  currentColor: 'red' | 'blue' | 'green' | 'yellow';
+  winner: string | null;
+  gamePhase: 'playing' | 'color-selection' | 'finished';
+  pendingDrawCount: number; // For stacking draw cards
+}

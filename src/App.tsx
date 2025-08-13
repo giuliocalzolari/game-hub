@@ -6,6 +6,7 @@ import Dama from './components/games/Dama';
 import Tris from './components/games/Tris';
 import SnakesAndLadders from './components/games/SnakesAndLadders';
 import Backgammon from './components/games/Backgammon';
+import Uno from './components/games/Uno';
 import { Game } from './types/games';
 
 const AVAILABLE_GAMES: Game[] = [
@@ -39,6 +40,11 @@ const AVAILABLE_GAMES: Game[] = [
     description: 'Race your pieces home in this classic strategy game',
     icon: '🎯',
   },
+  {
+    id: 'uno',
+    name: 'UNO',
+    description: 'Match colors and numbers in this fast-paced card game',
+  },
 ];
 
 function App() {
@@ -58,6 +64,8 @@ function App() {
         return <SnakesAndLadders isBotEnabled={isBotEnabled} />;
       case 'backgammon':
         return <Backgammon isBotEnabled={isBotEnabled} />;
+      case 'uno':
+        return <Uno isBotEnabled={isBotEnabled} />;
       default:
         return <div>Game not found</div>;
     }
